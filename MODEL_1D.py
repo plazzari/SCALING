@@ -146,10 +146,10 @@ def main():
     
 
     T  = 200
+#   T  = 10000
     dx = 8.8
     Ntot = 1000
     Nx = Ntot/size
-#   T  = 10000
     L    = dx*Nx
     Lglo = dx*Ntot
     F  = 0.05
