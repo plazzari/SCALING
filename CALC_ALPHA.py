@@ -39,12 +39,10 @@ def CALC_ALPHA(x,h,file_out):
 
              for i in range(Nint):
 
-#                left  = myedges_x[i]
                  left  = int(myedges_x[i])
 
                  if i < Nint-1:
 
-#                  right = myedges_x[i+1]
                    right = int(myedges_x[i+1])
 
                  else:
@@ -55,7 +53,6 @@ def CALC_ALPHA(x,h,file_out):
 
 #                print " ======= Left ", left,  " ======= Right ", right
 
-#                myidx = (mydatax >= left) and (mydatax < right)
                  if right-left >1:
                      W[i]  = np.nanstd(mydata[ (mydatax >= left) &  (mydatax < right)    ,1])
                  else:
@@ -67,7 +64,6 @@ def CALC_ALPHA(x,h,file_out):
 
 #        print " ======= Scale ", Lx,Ly,scale, np.nanmean(W)
     
-    # linear fit, polynomial of degree 1
     try:
         coeffs=np.polyfit(np.log(scales_fit), np.log(Ws), 1)
     except:

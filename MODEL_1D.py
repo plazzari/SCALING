@@ -47,13 +47,13 @@ def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T):
     t = np.linspace(0, T, Nt+1)   # mesh points in time
 
 # We add two cells 0 and N+1 position for periodic boundary conditions 
-# and GHOST ceels in the case of MPI 
+# and GHOST cells in the case of MPI 
 #
 #  |____|____|____|____|____|.......|____|____| 
 #  | 0  | 1  | 2  | 3  | 4  |.......|_Nx_|Nx+1| total Nx+2 entries  
 #  |xxxx|______Nx computational cells____|xxxx| 
 #
-#     At each time step Boundary Conditions are applied as follows
+#     At each time step periodic Boundary Conditions are applied as follows
 #      _______________________________
 #     |                               |
 #     |                               |
@@ -64,6 +64,8 @@ def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T):
 #         |                                |
 #         | _______________________________|
 
+# in the case of MPI, '0' and 'Nx+1' cells are threated as ghost cells.
+
     u   = np.zeros(Nx+2)
     u_1 = np.zeros(Nx+2)
 
@@ -71,6 +73,7 @@ def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T):
     t2_list =[]
     W0_list =[]
     alpha_list =[]
+
     for n in range(0, Nt):
         print(str(n))
         if model == 'EW': # Edward Wilkinson Model
@@ -84,7 +87,7 @@ def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T):
                 eta =random.uniform(-0.5, 0.5)
                 u[i] = u_1[i] + F * (u_1[i-1] - 2.0 * u_1[i] + u_1[i+1] + 0.125* (u_1[i+1] - u_1[i-1])**2.0 ) + np.sqrt(12.0*dt) * eta
 
-        if model == 'BIO': # Biological model logistic r =1 k=1 ???
+        if model == 'BIO': # Biological model logistic r =0.15 k=1 ???
             for i in range(1, Nx+1):
                 eta =random.uniform(-0.5, 0.5)
                 u[i] = u_1[i] + F * (u_1[i-1] - 2.0 * u_1[i] + u_1[i+1] ) + dt * 0.15 * np.absolute(u_1[i]) * (1.0 - u_1[i]/10.) + np.sqrt(12.0*dt) * eta
@@ -118,7 +121,7 @@ def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T):
                 t2_list.append(n*dt)
                 file_out = 'pippo.npy'
                 x_n=np.arange(Nx)
-#               x_n=np.arange(u_glo[1:Nx+2].shape[0])
+
                 alpha_list.append(CALC_ALPHA(x_n,u_glo,file_out))
 
         # Switch variables before next step
