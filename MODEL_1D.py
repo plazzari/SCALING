@@ -1,11 +1,6 @@
-#!/usr/bin/env python
-# As v1, but using scipy.sparse.diags instead of spdiags
 """
 Functions for solving a 1D diffusion equations of simplest types
 (constant coefficient, no source term):
-      u_t = a*u_xx on (0,L)
-	with boundary conditions u=0 on x=0,L, for t in (0,T].
-Initial condition: u(x,0)=I(x).
 The following naming convention of variables are used.
 ===== ==========================================================
 Name  Description
@@ -39,11 +34,10 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 import scipy.sparse
 import scipy.sparse.linalg
-import nolds
 from CALC_ALPHA import *
 from sklearn import linear_model, datasets
 
-def solver_FE_simple(model,comm,size,rank, a, L, Nx, F, T):
+def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, F, T):
     """
     Simplest expression of the computational algorithm
     using the Forward Euler method and explicit Python loops.
@@ -53,11 +47,10 @@ def solver_FE_simple(model,comm,size,rank, a, L, Nx, F, T):
     import time
     t0 = time.clock()
 
-    x = np.linspace(0, L, Nx+1)   # mesh points in space
-    dx = x[1] - x[0]
     dt = F*dx**2/a
     Nt = int(round(T/float(dt)))
     t = np.linspace(0, T, Nt+1)   # mesh points in time
+
 # We add two cells 0 and N+1 position for periodic boundary conditions 
 # and GHOST ceels in the case of MPI 
 #
@@ -123,13 +116,14 @@ def solver_FE_simple(model,comm,size,rank, a, L, Nx, F, T):
         if (n % 5) == 0 :
             u_glo = np.asarray(comm.gather(u, root=0)).flatten() 
             if rank == 0:
-                u_mean = u_glo.mean()
-                w0     = np.sqrt( ( (u_glo-u_mean)*(u_glo-u_mean) ).sum()/L)
+                u_mean = u_glo[1:Nx+2].mean()
+                w0     = np.sqrt( ( (u_glo[1:Nx+2]-u_mean)*(u_glo[1:Nx+2]-u_mean) ).sum()/L)
                 t1_list.append(n*dt)
                 W0_list.append(w0)
                 t2_list.append(n*dt)
                 file_out = 'pippo.npy'
-                x_n=np.arange(u_glo.shape[0])
+                x_n=np.arange(Nx)
+#               x_n=np.arange(u_glo[1:Nx+2].shape[0])
                 alpha_list.append(CALC_ALPHA(x_n,u_glo,file_out))
 
         # Switch variables before next step
@@ -137,7 +131,7 @@ def solver_FE_simple(model,comm,size,rank, a, L, Nx, F, T):
 
     t1 = time.clock()
 
-    return u_glo[1:Nx+2], x, t, t1-t0, t1_list, W0_list, t2_list, alpha_list
+    return u_glo[1:Nx+2], t, t1-t0, t1_list, W0_list, t2_list, alpha_list
 
 def main():
     # print command line arguments
@@ -155,16 +149,21 @@ def main():
         size = 1
         rank = 0
     
+
+    T  = 200
+    dx = 8.8
     Ntot = 1000
     Nx = Ntot/size
 #   T  = 10000
-    T  = 200
-    dx = 8.8
-    L  = dx*Nx
+    L    = dx*Nx
+    Lglo = dx*Ntot
     F  = 0.05
     a =1.
+    x = np.linspace(0, Lglo, Ntot)   # mesh points in space
+
     
-    ut, x, t, tempo, t1_list, W_list, t2_list, alpha_list =  solver_FE_simple(model,comm,size,rank, a, L, Nx, F, T)
+        
+    ut, t, tempo, t1_list, W_list, t2_list, alpha_list =  solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, F, T)
     
     if rank == 0 :
 	    
