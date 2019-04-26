@@ -1,6 +1,5 @@
 """
-Functions for solving a 1D diffusion equations of simplest types
-(constant coefficient, no source term):
+Functions for solving a 1D stochastic equation 
 The following naming convention of variables are used.
 ===== ==========================================================
 Name  Description
@@ -12,19 +11,15 @@ F     The dimensionless number a*dt/dx**2, which implicitly
 T     The stop time for the simulation.
 I     Initial condition (Python function of x) in our case set to zero.
 a     Variable coefficient (constant).
-L     Length of the domain ([0,L]).
+L     Length of the domain ([0,L]). L is local in the case of MPI 
 x     Mesh points in space.
 t     Mesh points in time.
 n     Index counter in time.
-u     Unknown at current/new time level.
+u     Unknown at current/new time level. u is local in the case of MPI
 u_1   u at the previous time level.
 dx    Constant mesh spacing in x.
 dt    Constant mesh spacing in t.
 ===== ==========================================================
-user_action is a function of (u, x, t, n), u[i] is the solution at
-spatial mesh point x[i] at time t[n], where the calling code
-can add visualization, error computations, data analysis,
-store solutions, etc.
 """
 import sys, time
 import random
@@ -58,7 +53,7 @@ def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, F, T):
 #  | 0  | 1  | 2  | 3  | 4  |.......|_Nx_|Nx+1| total Nx+2 entries  
 #  |xxxx|______Nx computational cells____|xxxx| 
 #
-#     At each time step Boundary conditions are applied as follows
+#     At each time step Boundary Conditions are applied as follows
 #      _______________________________
 #     |                               |
 #     |                               |
