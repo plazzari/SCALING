@@ -32,7 +32,7 @@ import scipy.sparse.linalg
 from CALC_ALPHA import *
 from sklearn import linear_model, datasets
 
-def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, F, T):
+def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T):
     """
     Simplest expression of the computational algorithm
     using the Forward Euler method and explicit Python loops.
@@ -112,7 +112,7 @@ def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, F, T):
             u_glo = np.asarray(comm.gather(u, root=0)).flatten() 
             if rank == 0:
                 u_mean = u_glo[1:Nx+2].mean()
-                w0     = np.sqrt( ( (u_glo[1:Nx+2]-u_mean)*(u_glo[1:Nx+2]-u_mean) ).sum()/L)
+                w0     = np.sqrt( ( (u_glo[1:Nx+2]-u_mean)*(u_glo[1:Nx+2]-u_mean) ).sum()/Lglo)
                 t1_list.append(n*dt)
                 W0_list.append(w0)
                 t2_list.append(n*dt)
@@ -158,7 +158,7 @@ def main():
 
     
         
-    ut, t, tempo, t1_list, W_list, t2_list, alpha_list =  solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, F, T)
+    ut, t, tempo, t1_list, W_list, t2_list, alpha_list =  solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T)
     
     if rank == 0 :
 	    
