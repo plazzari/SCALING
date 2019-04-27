@@ -73,8 +73,6 @@ def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T):
     W0_list =[]
     alpha_list =[]
 
-    random.seed(a=19770213)
-
     for n in range(0, Nt):
         print(str(n))
         if model == 'EW': # Edward Wilkinson Model
@@ -137,8 +135,10 @@ def main():
     for i,arg in enumerate(sys.argv[1:]):
         if i == 0:
            model = arg
-        if i >  0:
-           raise TypeError(" max #arg = 0") 
+        if i == 1:
+           rnd = arg
+        if i >  1:
+           raise TypeError(" max #arg = 2") 
     try:
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
@@ -160,7 +160,9 @@ def main():
     a =1.
     x = np.linspace(0, Lglo, Ntot)   # mesh points in space
 
-    
+    if rnd == 'Det':
+       print('Seed of random generator set to 19770213')
+       random.seed(a=19770213)
         
     ut, t, tempo, t1_list, W_list, t2_list, alpha_list =  solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T)
     
@@ -191,7 +193,7 @@ def main():
            from sklearn import linear_model, datasets
            ransac = linear_model.RANSACRegressor()
            vc=[]
-        #first fit
+# first fit
            x_ran=np.zeros((len(logt),1))
            y_ran=np.zeros((len(logw0),1))
            x_ran[:,0]  = logt
@@ -204,9 +206,11 @@ def main():
            line_X = np.arange(x_ran.min(), x_ran.max(),0.1)[:, np.newaxis]
            line_y_ransac = ransac.predict(line_X)
            m0,b0 = np.polyfit(np.asarray(logt), np.asarray(logw0), 1)
-	   plt.title(r"$ W \approx t^\beta, \beta= $" '{:01.2f}'.format(vc[0]),fontsize=14)
+           plt.title(r"$ W \approx t^\beta, \beta= $" '{:01.2f}'.format(vc[0]),fontsize=14)
         except:
-	   plt.title(r"$ W \approx t^\beta" ,fontsize=14)
+           print("An exception occurred check sklearn module or RANSAC procedure ... ")
+           print(r"not estimating  $\beta$ ... ")
+           plt.title(r"$ W \approx t^\beta$" ,fontsize=14)
         
         ax3=plt.subplot(3, 1, 3)
         time2 = np.asarray(t2_list)
