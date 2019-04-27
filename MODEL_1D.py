@@ -30,7 +30,6 @@ import matplotlib.pyplot as plt
 import scipy.sparse
 import scipy.sparse.linalg
 from CALC_ALPHA import *
-from sklearn import linear_model, datasets
 
 def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T):
     """
@@ -73,6 +72,8 @@ def solver_FE_simple(model,comm,size,rank, a, dx, Nx, L, Lglo, F, T):
     t2_list =[]
     W0_list =[]
     alpha_list =[]
+
+    random.seed(a=19770213)
 
     for n in range(0, Nt):
         print(str(n))
@@ -186,23 +187,26 @@ def main():
                if tt>0:
                    logt.append(np.log(tt))
                    logw0.append(np.log(data2plot[i]))
-        
-        ransac = linear_model.RANSACRegressor()
-        vc=[]
+        try:
+           from sklearn import linear_model, datasets
+           ransac = linear_model.RANSACRegressor()
+           vc=[]
         #first fit
-        x_ran=np.zeros((len(logt),1))
-        y_ran=np.zeros((len(logw0),1))
-        x_ran[:,0]  = logt
-        y_ran[:,0] = logw0
-        ransac.fit(x_ran, y_ran)
-        inlier_mask = ransac.inlier_mask_
-        outlier_mask = np.logical_not(inlier_mask)
+           x_ran=np.zeros((len(logt),1))
+           y_ran=np.zeros((len(logw0),1))
+           x_ran[:,0]  = logt
+           y_ran[:,0] = logw0
+           ransac.fit(x_ran, y_ran)
+           inlier_mask = ransac.inlier_mask_
+           outlier_mask = np.logical_not(inlier_mask)
         
-        vc.append(ransac.estimator_.coef_[0][0])
-        line_X = np.arange(x_ran.min(), x_ran.max(),0.1)[:, np.newaxis]
-        line_y_ransac = ransac.predict(line_X)
-        m0,b0 = np.polyfit(np.asarray(logt), np.asarray(logw0), 1)
-	plt.title(r"$ W \approx t^\beta, \beta= $" '{:01.2f}'.format(vc[0]),fontsize=14)
+           vc.append(ransac.estimator_.coef_[0][0])
+           line_X = np.arange(x_ran.min(), x_ran.max(),0.1)[:, np.newaxis]
+           line_y_ransac = ransac.predict(line_X)
+           m0,b0 = np.polyfit(np.asarray(logt), np.asarray(logw0), 1)
+	   plt.title(r"$ W \approx t^\beta, \beta= $" '{:01.2f}'.format(vc[0]),fontsize=14)
+        except:
+	   plt.title(r"$ W \approx t^\beta" ,fontsize=14)
         
         ax3=plt.subplot(3, 1, 3)
         time2 = np.asarray(t2_list)
