@@ -112,7 +112,10 @@ def solver_FE_simple(model,comm,size,rank, dx, dt, Nx, L, Lglo, F, T):
              u[Nx+1] = u[1]
 
         if (n % 5) == 0 :
-            u_glo = np.asarray(comm.gather(u, root=0)).flatten() 
+            if size > 1:
+               u_glo = np.asarray(comm.gather(u, root=0)).flatten() 
+            else:
+               u_glo = u
             if rank == 0:
                 u_mean = u_glo[1:Nx+2].mean()
                 w0     = np.sqrt( ( (u_glo[1:Nx+2]-u_mean)*(u_glo[1:Nx+2]-u_mean) ).sum()/Nx)
@@ -146,6 +149,7 @@ def main():
         size = comm.Get_size()
         rank = comm.Get_rank()
     except:
+        comm = 0
         size = 1
         rank = 0
     
