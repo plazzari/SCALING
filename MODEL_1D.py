@@ -31,6 +31,8 @@ import matplotlib.pyplot as plt
 import scipy.sparse
 import scipy.sparse.linalg
 from CALC_ALPHA import *
+from powernoise import powernoise
+from mpi4py import MPI
 
 def solver_FE_simple(model,comm,size,rank, dx, dt, Nx, L, Lglo, F, T):
     """
@@ -39,8 +41,7 @@ def solver_FE_simple(model,comm,size,rank, dx, dt, Nx, L, Lglo, F, T):
     For this method F <= 0.5 for stability.
     When solving ED or KPZ equation conditions are more stringent F ~0.05
     """
-    import time
-    t0 = time.clock()
+    t0 = time.process_time()
     print("dt =" + str(dt))
     Nt = int(round(T/float(dt)))
     t = np.linspace(0, T, Nt+1)   # mesh points in time
@@ -65,13 +66,34 @@ def solver_FE_simple(model,comm,size,rank, dx, dt, Nx, L, Lglo, F, T):
 
 # in the case of MPI, '0' and 'Nx+1' cells are threated as ghost cells.
 
-    u   = np.zeros(Nx+2)
-    u_1 = np.zeros(Nx+2)
+    if model == 'KOL': # Biological model logistic r =0.15 k=1 ???
+        u   = np.zeros(Nx+2) 
+        u_1 = np.zeros(Nx+2)
+    else:
+        u   = np.ones(Nx+2) + np.random.normal(loc=0.0, scale = 0.33)
+        u_1 = np.ones(Nx+2) + np.random.normal(loc=0.0, scale = 0.33)
 
     t1_list =[]
     t2_list =[]
     W0_list =[]
     alpha_list =[]
+    alpha_list_x =[]
+    alpha_list_y =[]
+
+    if model == "KOL":
+       H = 3.5
+       mean_CN = 0.5
+       CN = 1.0;#powernoise(H, Nx)  # generate power law noise 
+       CN -= np.amin(CN)  # set the lowest value to zero - all values >= 0
+       CN *= mean_CN/np.mean(CN)  # set the mean to the desired value
+       x_n=np.arange(Nx)
+       file_out='snoopy.np'
+       CN_x=CALC_ALPHA(x_n,CN,file_out)[1]
+       CN_y=CALC_ALPHA(x_n,CN,file_out)[2]
+    else:
+       CN_x=np.arange(Nx)
+       CN_y=np.arange(Nx)
+
 
     for n in range(0, Nt):
         print(str(n))
@@ -90,6 +112,18 @@ def solver_FE_simple(model,comm,size,rank, dx, dt, Nx, L, Lglo, F, T):
             for i in range(1, Nx+1):
                 eta =random.uniform(-0.5, 0.5)
                 u[i] = u_1[i] + F * (u_1[i-1] - 2.0 * u_1[i] + u_1[i+1] ) + dt * 0.15 * np.absolute(u_1[i]) * (1.0 - u_1[i]/10.) + np.sqrt(12.0*dt) * eta
+
+        if model == 'BIO2': # Biological model logistic r =0.15 k=1 ???
+            for i in range(1, Nx+1):
+                eta =random.uniform(-0.5, 0.5)
+                u[i] = u_1[i] + F * (u_1[i-1] - 2.0 * u_1[i] + u_1[i+1] ) + dt * 0.000015 * np.absolute(u_1[i]) * ( 1.0 - u_1[i]/0.005) + np.sqrt(12.0*dt) * 0.00005 * eta * np.absolute(u_1[i])
+
+        if model == 'KOL': # Biological model logistic r =0.15 k=1 ???
+            for i in range(1, Nx+1):
+                eta = max(CN[i-1],0) 
+#               eta = max(CN[i-1] + np.random.normal(loc=0.0, scale = max(CN[i-1]*0.25, 10**(-10))),0) 
+                u[i] = max(0, u_1[i]) + F * (max(0, u_1[i-1]) - 2.0 * max(0, u_1[i]) + max(0, u_1[i+1]) ) + dt * (eta * max(0, u_1[i]) - u_1[i]**2/10.) 
+
 
         # Insert boundary conditions
 
@@ -111,28 +145,36 @@ def solver_FE_simple(model,comm,size,rank, dx, dt, Nx, L, Lglo, F, T):
              u[0] = u[Nx]
              u[Nx+1] = u[1]
 
-        if (n % 5) == 0 :
+        if (n % 100) == 0 :
             if size > 1:
-               u_glo = np.asarray(comm.gather(u, root=0)).flatten() 
+               u_glo = np.asarray(comm.gather(u[1:Nx+2], root=0)).flatten() 
             else:
                u_glo = u
+
             if rank == 0:
-                u_mean = u_glo[1:Nx+2].mean()
-                w0     = np.sqrt( ( (u_glo[1:Nx+2]-u_mean)*(u_glo[1:Nx+2]-u_mean) ).sum()/Nx)
+                Nxtot  = u_glo.size
+                u_mean = u_glo[1:Nxtot].mean()
+                w0     = np.sqrt( ( (u_glo[1:Nxtot]-u_mean)*(u_glo[1:Nxtot]-u_mean) ).sum()/Nxtot)
                 t1_list.append(n*dt)
                 W0_list.append(w0)
                 t2_list.append(n*dt)
                 file_out = 'pippo.npy'
-                x_n=np.arange(Nx)
+                x_n=np.arange(Nxtot)
 
-                alpha_list.append(CALC_ALPHA(x_n,u_glo,file_out))
+                alpha_list.append(CALC_ALPHA(x_n  ,   u_glo,file_out)[0])
+                alpha_list_x.append(CALC_ALPHA(x_n,   u_glo,file_out)[1])
+                alpha_list_y.append(CALC_ALPHA(x_n,   u_glo,file_out)[2])
+
+#               alpha_list.append(CALC_ALPHA(x_n[0:100]  ,   u_glo[0:100],file_out)[0])
+#               alpha_list_x.append(CALC_ALPHA(x_n[0:100],   u_glo[0:100],file_out)[1])
+#               alpha_list_y.append(CALC_ALPHA(x_n[0:100],   u_glo[0:100],file_out)[2])
 
         # Switch variables before next step
         u_1, u = u, u_1
 
-    t1 = time.clock()
+    t1 = time.process_time()
 
-    return u_glo[1:Nx+2], t, t1-t0, t1_list, W0_list, t2_list, alpha_list
+    return u_glo[1:Nxtot], t, t1-t0, t1_list, W0_list, t2_list, alpha_list,alpha_list_x,alpha_list_y,CN_x,CN_y
 
 def main():
     # print command line arguments
@@ -144,7 +186,6 @@ def main():
         if i >  1:
            raise TypeError(" max #arg = 2") 
     try:
-        from mpi4py import MPI
         comm = MPI.COMM_WORLD
         size = comm.Get_size()
         rank = comm.Get_rank()
@@ -154,8 +195,7 @@ def main():
         rank = 0
     
 
-    T  = 1000
-#   T  = 10000
+    T  = 5000
 
 #   g  =  12.36 coupling constant 
 #   nu = 0.5
@@ -164,8 +204,8 @@ def main():
 #   dx = 2.0*g*a/(5.0 np.sqrt(g)) = approx 5.0
     dx = 4.97
     dt = 0.65
-    Ntot = 1000
-    Nx = Ntot/size
+    Ntot = 250
+    Nx = int(Ntot/size)
     L    = dx*Nx
     Lglo = dx*Ntot
     F  = dt/dx**2
@@ -175,21 +215,27 @@ def main():
        print('Seed of random generator set to 19770213')
        random.seed(a=19770213)
         
-    ut, t, tempo, t1_list, W_list, t2_list, alpha_list =  solver_FE_simple(model,comm,size,rank, dx, dt, Nx, L, Lglo, F, T)
+    ut, t, tempo, t1_list, W_list, t2_list, alpha_list, alpha_list_x, alpha_list_y, CN_x, CN_y =  solver_FE_simple(model,comm,size,rank, dx, dt, Nx, L, Lglo, F, T)
     
     if rank == 0 :
 	    
         time1 = np.asarray(t1_list)
         data2plot = np.asarray(W_list)
 
-        ax1=plt.subplot(3, 1, 1)
+        ax1=plt.subplot(2, 2, 1)
         plt.plot(ut)
         plt.xlabel(r"$Space[\tilde{x}]$")
         plt.ylabel(r"$\tilde{u}(\tilde{x)}$")
         ax1.set_title(r'$\tilde{u}( \tilde{x} , \tilde{t} )$',fontsize=14)
         ax1.text(0.1,0.8,r'$t=$' '{:.0f}'.format(T),fontsize=12,transform=ax1.transAxes)
 
-        ax2=plt.subplot(3, 1, 2)
+        ax2=plt.subplot(2, 2, 2)
+        plt.loglog(alpha_list_x[-1],alpha_list_y[-1])
+        plt.xlabel(r"$Space[\tilde{x}]$")
+        plt.ylabel(r"$\tilde{u}(\tilde{x)}$")
+        ax1.set_title(r'$\tilde{u}( \tilde{x} , \tilde{t} )$',fontsize=14)
+
+        ax3=plt.subplot(2, 2, 3)
         plt.loglog(time1,data2plot,linewidth=3,label=r'$W_{0}$',color='r')
         plt.xlabel(r"$Time[\tilde{t}]$")
         plt.ylabel(r"$\tilde{w}$")
@@ -218,20 +264,21 @@ def main():
            line_X = np.arange(x_ran.min(), x_ran.max(),0.1)[:, np.newaxis]
            line_y_ransac = ransac.predict(line_X)
            m0,b0 = np.polyfit(np.asarray(logt), np.asarray(logw0), 1)
-           plt.title(r"$ \tilde{r} \approx \tilde{t}^\beta $",fontsize=14)
-           ax2.text(0.1,0.75,r'$\beta=$' '{:01.2f}'.format(vc[0]),fontsize=12,transform=ax2.transAxes)
+           plt.title(r"$ \tilde{W} \approx \tilde{t}^\beta $",fontsize=14)
+           ax3.text(0.1,0.75,r'$\beta=$' '{:01.2f}'.format(vc[0]),fontsize=12,transform=ax3.transAxes)
         except:
            print("An exception occurred check sklearn module or RANSAC procedure ... ")
            print(r"not estimating  beta ... ")
            plt.title(r"$ \tilde{w} \approx \tilde{t}^\beta$" ,fontsize=14)
         
-        ax3=plt.subplot(3, 1, 3)
+
+        ax4=plt.subplot(2, 2, 4)
         time2 = np.asarray(t2_list)
         data2plot = np.asarray(alpha_list)
         plt.plot(time2,alpha_list)
         plt.xlabel(r"$Time [\tilde{t}]$")
         plt.ylabel(r"$\alpha$")
-        plt.title(r"$ \tilde{w} \approx \tilde{x}^{\alpha}$",fontsize=14)
+        plt.title(r"$\tilde{w} \approx \tilde{x}^{\alpha}$",fontsize=14)
         
         plt.tight_layout()
         file_out = model + '.png'

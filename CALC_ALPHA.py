@@ -2,27 +2,27 @@ import numpy as np
 import pylab as pl
 #from tempfile import TemporaryFile
  
-def CALC_ALPHA(x,h,file_out):
+def CALC_ALPHA(x,h):
     Lx=len(x)
     Ly=len(h)
     mydata=[]
     for ccc in range(Lx):
        mydata.append((x[ccc],h[ccc]))
 
+
     mydata=np.asarray(mydata)
  
     # computing the fractal dimension
     #considering only scales in a logarithmic list
     # looping over several scales
-    np.save(file_out, mydata)
     minx=np.min(x)
     maxx=np.max(x)
     minh=np.min(h)
     maxh=np.max(h)
 
     
-#   scales=np.logspace(1, 8, num=20, endpoint=False, base=2)
-    scales=np.logspace(1, 12, num=24, endpoint=False, base=2)
+    scales=np.logspace(1, 8, num=20, endpoint=False, base=2)
+#   scales=np.logspace(1, 12, num=24, endpoint=False, base=2)
     Ns=[]
     Ws=[]
     scales_fit=[]
@@ -69,5 +69,5 @@ def CALC_ALPHA(x,h,file_out):
     except:
         coeffs=[np.nan,np.nan]
 
-    return coeffs[0] 
+    return coeffs[0],scales_fit,Ws 
  
