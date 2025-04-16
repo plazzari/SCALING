@@ -27,6 +27,8 @@ def main():
             decay[i][timeframe]=np.mean(data[1][int(L/2),timeframe])
             # Add a vertical line at the midpoint of the x-axis
             ax.axvline(x=L/2, color='red', linestyle='--')
+            ax.set_xlabel('x')
+            ax.set_ylabel('C')
         ax.legend()
 
     plot_file = 'LAPvsBILAP_plots/LAPvsBILAP' + str(L) +'_' + str(wn) + '.png'
@@ -39,7 +41,8 @@ def main():
         ax2.plot(range(8), decay[i,:], marker='o', label=f'{mod}')
     tauLap = np.log10(decay[0,0]/decay[0,-1])/8
     tauBILap = np.log10(decay[1,0]/decay[1,-1])/8
-    ax2.set_title('Decay Rate ratio ' + str(tauLap/tauBILap))
+    ratio = tauLap / tauBILap
+    ax2.set_title(r'Decay Rate Ratio for wn = {}: $\tau_{{\mathrm{{LAP}}}} / \tau_{{\mathrm{{BILAP}}}} = {:.2g}$'.format(wn, ratio))
     ax2.set_xlabel('Timeframe')
     ax2.set_ylabel('Decay')
     ax2.legend()
