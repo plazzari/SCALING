@@ -22,7 +22,7 @@ dx    Constant mesh spacing in x.
 dt    Constant mesh spacing in t.
 ===== ==========================================================
 """
-import sys, time
+import sys, os, time
 import random
 import numpy as np
 import matplotlib as mpl
@@ -32,8 +32,19 @@ import scipy.sparse
 import scipy.sparse.linalg
 from CALC_ALPHA import *
 from powernoise import powernoise
-from mpi4py import MPI
+
+
 import pickle
+
+def running_under_mpi():
+    mpi_env_vars = [
+        "OMPI_COMM_WORLD_SIZE",      # OpenMPI
+        "PMI_SIZE",                  # MPICH / Intel MPI
+        "PMI_RANK",
+        "MPI_LOCALRANKID",
+        "SLURM_PROCID",
+    ]
+    return any(v in os.environ for v in mpi_env_vars)
 
 def solver_FE_simple(model,wn,comm,size,rank, dx, dt, Nx, L, Lglo, F, Flap, T):
     """
@@ -191,15 +202,19 @@ def main():
         if i == 1:
            wn = int(arg)
         if i >  1:
-           raise TypeError(" max #arg = 2") 
-    try:
+           raise TypeError(" max #arg = 2")
+        
+    if running_under_mpi():
+        from mpi4py import MPI
         comm = MPI.COMM_WORLD
-        size = comm.Get_size()
         rank = comm.Get_rank()
-    except:
-        comm = 0
-        size = 1
+        size = comm.Get_size()
+    else:
+        MPI = None
+        comm = None
         rank = 0
+        size = 1 
+
     
 
     T  = 500
@@ -235,8 +250,8 @@ def main():
         saveObject = (time1, data2plot)
         with open(file_out, 'wb') as f: 
             pickle.dump(saveObject, f)
-   
-        
+    if running_under_mpi():
+        MPI.Finalize()  
 
 
 if __name__ == "__main__":
