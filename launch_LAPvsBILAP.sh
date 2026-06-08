@@ -1,6 +1,6 @@
 #! /bin/bash
 
-source /g100/home/userexternal/plazzari/sequence3.sh
+#source /g100/home/userexternal/plazzari/sequence3.sh
 
 mkdir -p LAPvsBILAP_data LAPvsBILAP_plots
 
